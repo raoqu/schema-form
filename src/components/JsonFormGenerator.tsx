@@ -19,6 +19,7 @@ const JsonFormGenerator: React.FC<JsonFormGeneratorProps> = ({
   const [jsonString, setJsonString] = useState<string>('');
   const [editingSchema, setEditingSchema] = useState<string>('');
   const [isMaximized, setIsMaximized] = useState(false);
+  const [result, setResult] = useState<any>(null);
 
   useEffect(() => {
     const formattedSchema = JSON.stringify(schema, null, 2);
@@ -36,6 +37,14 @@ const JsonFormGenerator: React.FC<JsonFormGeneratorProps> = ({
 
   const toggleMaximize = () => {
     setIsMaximized(!isMaximized);
+  };
+
+  const handleFormFinish = (values: any) => {
+    console.log('JsonFormGenerator onFinish:', values);
+    setResult(values);
+    if (onFinish) {
+      onFinish(values);
+    }
   };
 
   return (
@@ -72,8 +81,16 @@ const JsonFormGenerator: React.FC<JsonFormGeneratorProps> = ({
             Update Form
           </Button>
           <div style={{ marginTop: '16px' }}>
-            <SchemaForm jsonSchema={jsonString} onFinish={onFinish} initialValues={initialValues} />
+            <SchemaForm jsonSchema={jsonString} onFinish={handleFormFinish} initialValues={initialValues} />
           </div>
+          {result && (
+            <div className="result-json">
+              <div className="title">表单数据</div>
+              <pre>
+                {JSON.stringify(result, null, 2)}
+              </pre>
+            </div>
+          )}
         </>
       )}
     </div>

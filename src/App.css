@@ -105,6 +105,13 @@ h1 {
 
 .ant-form-item-control .ant-radio-group {
   min-width: 240px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ant-form-item-control .ant-radio-wrapper {
+  margin-right: 0;
 }
 
 .ant-form-item[data-newline="true"] {

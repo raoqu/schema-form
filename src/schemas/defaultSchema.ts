@@ -29,6 +29,10 @@ export const defaultSchema: FormSchema = {
           max: 150,
           step: 1,
           defaultValue: 25,
+          rules: [
+            { required: true, message: 'Please input your age!' },
+            { type: 'number', min: 0, max: 150, message: 'Age must be between 0 and 150' }
+          ],
         },
         birthDate: {
           name: 'birthDate',
@@ -37,6 +41,7 @@ export const defaultSchema: FormSchema = {
           format: 'YYYY-MM-DD',
           defaultValue: '2000-01-01',
           required: true,
+          rules: [{ required: true, message: 'Please select your birth date!' }],
         },
         gender: {
           name: 'gender',
@@ -44,6 +49,7 @@ export const defaultSchema: FormSchema = {
           type: 'radio',
           required: true,
           defaultValue: 'male',
+          rules: [{ required: true, message: 'Please select your gender!' }],
           options: [
             { label: 'Male', value: 'male' },
             { label: 'Female', value: 'female' },
@@ -54,7 +60,7 @@ export const defaultSchema: FormSchema = {
     },
     {
       name: 'contactMethods',
-      label: 'Contact Methods',
+      label: '联系方式',
       type: 'array',
       card: {
         title: '联系方式',
@@ -70,6 +76,7 @@ export const defaultSchema: FormSchema = {
             label: 'Type',
             type: 'select',
             required: true,
+            rules: [{ required: true, message: 'Please select contact type!' }],
             options: [
               { label: 'Email', value: 'email' },
               { label: 'Phone', value: 'phone' },
@@ -106,45 +113,36 @@ export const defaultSchema: FormSchema = {
       ],
     },
     {
-      name: 'preferences',
-      label: 'Preferences',
-      type: 'object',
-      card: {
-        title: '偏好设置',
-        bordered: true,
-        size: 'default',
-      },
-      properties: {
-        subscribe: {
-          name: 'subscribe',
-          label: 'Subscribe to newsletter',
-          type: 'checkbox',
-          defaultValue: true,
-        },
-        interests: {
-          name: 'interests',
-          label: 'Interests',
-          type: 'select',
-          mode: 'multiple',
-          placeholder: 'Select your interests',
-          defaultValue: ['sports', 'music'],
-          newline: true,
-          options: [
-            { label: 'Sports', value: 'sports' },
-            { label: 'Music', value: 'music' },
-            { label: 'Reading', value: 'reading' },
-            { label: 'Travel', value: 'travel' },
-          ],
-        },
-        bio: {
-          name: 'bio',
-          label: 'Biography',
-          type: 'string',
-          required: false,
-          placeholder: 'Tell us about yourself',
-          newline: true,
-        },
-      },
+      name: 'photos',
+      label: '相册',
+      type: 'upload',
+      required: false,
+      maxCount: 5,
+      maxSize: 5, // 5MB per image
+      accept: 'image/png,image/jpeg',
+      listType: 'picture-card',
+      multiple: true,
+    },
+     {
+      name: 'subscribe',
+      label: '订阅邮件',
+      type: 'checkbox',
+      defaultValue: true,
+    },
+     {
+      name: 'interests',
+      label: '兴趣爱好',
+      type: 'select',
+      mode: 'multiple',
+      placeholder: 'Select your interests',
+      defaultValue: ['sports', 'music'],
+      newline: true,
+      options: [
+        { label: 'Sports', value: 'sports' },
+        { label: 'Music', value: 'music' },
+        { label: 'Reading', value: 'reading' },
+        { label: 'Travel', value: 'travel' },
+      ],
     },
   ],
   layout: {

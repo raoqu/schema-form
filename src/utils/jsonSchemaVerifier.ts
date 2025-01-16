@@ -6,20 +6,23 @@ export interface SchemaVerificationResult {
   schema?: FormSchema;
 }
 
+const VALID_FIELD_TYPES = [
+  'string',
+  'longtext',
+  'number',
+  'checkbox',
+  'radio',
+  'select',
+  'upload',
+  'array',
+  'object',
+  'date',
+  'json',
+  'image'
+] as const;
+
 const isValidFieldType = (type: string): boolean => {
-  return [
-    'string',
-    'longtext',
-    'number',
-    'checkbox',
-    'radio',
-    'select',
-    'upload',
-    'array',
-    'object',
-    'date',
-    'json'
-  ].includes(type);
+  return VALID_FIELD_TYPES.includes(type);
 };
 
 const isValidSelectOptions = (options: any[]): options is SelectOption[] => {
@@ -37,7 +40,7 @@ const validateField = (field: any): string | null => {
     return 'Field name is required and must be a string';
   }
   if (!field.type || !isValidFieldType(field.type)) {
-    return `Invalid field type for ${field.name}. Must be one of: string, longtext, number, checkbox, radio, select, upload, array, object, date, json`;
+    return `Invalid field type for ${field.name}. Must be one of: ${VALID_FIELD_TYPES.join(', ')}`;
   }
   if (field.required !== undefined && typeof field.required !== 'boolean') {
     return `Required property must be a boolean for field ${field.name}`;

@@ -13,14 +13,14 @@ import {
   Checkbox,
   Upload,
   Card,
+  message,
 } from 'antd';
 import { MinusCircleOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
-import { FormSchema, FormField } from '../types/form';
+import { FormSchema, FormField, ImageField } from '../types/form';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { verifyJsonSchema } from '../utils/jsonSchemaVerifier';
 import { RcFile } from 'antd/lib/upload';
-import dayjs from 'dayjs';
-import type { Dayjs } from 'dayjs';
+import dayjs, { Dayjs } from 'dayjs';
 
 const { TextArea } = Input;
 
@@ -57,39 +57,82 @@ const SchemaForm: React.FC<SchemaFormProps> = ({
     }
   }, [jsonSchema]);
 
+  // Extract default values from schema
+  const defaultValues = useMemo(() => {
+    if (!schema) return {};
+    return schema.fields.reduce((acc, field) => {
+      if (field.defaultValue !== undefined) {
+        // Convert date strings to moment objects for DatePicker
+        if (field.type === 'date' && field.defaultValue) {
+          acc[field.name] = dayjs(field.defaultValue);
+        } else {
+          acc[field.name] = field.defaultValue;
+        }
+      }
+      if (field.type === 'object' && field.properties) {
+        Object.entries(field.properties).forEach(([key, prop]) => {
+          if (prop.defaultValue !== undefined) {
+            // Convert date strings to moment objects for DatePicker
+            if (prop.type === 'date' && prop.defaultValue) {
+              acc[key] = dayjs(prop.defaultValue);
+            } else {
+              acc[key] = prop.defaultValue;
+            }
+          }
+        });
+      }
+      return acc;
+    }, {} as Record<string, any>);
+  }, [schema]);
+
   useEffect(() => {
-    if (initialValues) {
-      form.setFieldsValue(initialValues);
+    const values = {
+      ...defaultValues,
+      ...initialValues,
+    };
+    if (Object.keys(values).length > 0) {
+      form.setFieldsValue(values);
     }
-  }, [form, initialValues]);
+  }, [form, defaultValues, initialValues]);
 
   if (error || !schema) {
     return <div style={{ color: 'red' }}>{error || 'Invalid schema'}</div>;
   }
 
   const renderField = (field: FormField, parentField?: string): React.ReactNode => {
-    const fieldName = parentField ? [parentField, field.name] : field.name;
-
     switch (field.type) {
       case 'string':
-        return <Input placeholder={field.placeholder} />;
+        return (
+          <Input
+            placeholder={field.placeholder}
+          />
+        );
 
       case 'number':
         return (
           <InputNumber
-            placeholder={field.placeholder}
+            style={{ width: '100%' }}
             min={field.min}
             max={field.max}
             step={field.step}
+            placeholder={field.placeholder}
           />
         );
 
       case 'date':
         return (
           <DatePicker
-            format={field.format}
-            showTime={field.showTime}
             style={{ width: '100%' }}
+            format={field.format || 'YYYY-MM-DD'}
+            placeholder={`选择${field.label}`}
+            showTime={field.showTime}
+            onChange={(date) => {
+              // Convert to ISO string for form value
+              if (date) {
+                const value = date.toISOString();
+                form.setFieldValue(field.name, value);
+              }
+            }}
           />
         );
 
@@ -105,18 +148,21 @@ const SchemaForm: React.FC<SchemaFormProps> = ({
 
       case 'radio':
         return (
-          <Radio.Group options={field.options} />
+          <Radio.Group 
+            options={field.options}
+            style={{ display: 'flex', alignItems: 'center' }}
+          />
         );
 
       case 'checkbox':
         return (
-          <Checkbox>{field.label}</Checkbox>
+          <Checkbox />
         );
 
       case 'array':
         return (
-          <Form.List name={fieldName}>
-            {(fields, { add, remove }) => (
+          <Form.List name={field.name}>
+            {(fields, { add, remove }, { errors }) => (
               <>
                 {fields.map(({ key, name, ...restField }, index) => (
                   <div key={key} style={{ marginBottom: 16 }}>
@@ -147,11 +193,12 @@ const SchemaForm: React.FC<SchemaFormProps> = ({
                               sm={prop.type === 'checkbox' ? 8 : 12}
                             >
                               {renderFormItem(
-                                { 
+                                {
                                   ...prop,
-                                  name: propKey,
+                                  name: [name, propKey],
+                                  label: prop.label,
                                 },
-                                `${fieldName}.${name}`
+                                field.name
                               )}
                             </Col>
                           ))}
@@ -159,11 +206,12 @@ const SchemaForm: React.FC<SchemaFormProps> = ({
                       </Card>
                     ) : (
                       renderFormItem(
-                        { 
+                        {
                           ...field.items,
-                          name: field.items.name || 'item',
+                          name: [name, field.items.name || 'item'],
+                          label: field.items.label,
                         },
-                        `${fieldName}.${name}`
+                        field.name
                       )
                     )}
                   </div>
@@ -183,26 +231,147 @@ const SchemaForm: React.FC<SchemaFormProps> = ({
           </Form.List>
         );
 
+      case 'image':
+        const beforeUpload = (file: RcFile) => {
+          const isValidType = (field as ImageField).accept ? 
+            (field as ImageField).accept?.split(',').some(type => 
+              file.type === type.trim() || file.type.startsWith(type.trim().replace('*', ''))
+            ) : true;
+          
+          const isValidSize = (field as ImageField).maxSize ? 
+            file.size / 1024 / 1024 < (field as ImageField).maxSize! : true;
+
+          if (!isValidType) {
+            message.error('请上传正确的文件类型!');
+            return Upload.LIST_IGNORE;
+          }
+
+          if (!isValidSize) {
+            message.error(`文件大小不能超过 ${(field as ImageField).maxSize}MB!`);
+            return Upload.LIST_IGNORE;
+          }
+
+          return true;
+        };
+
+        const normFile = (e: any) => {
+          if (Array.isArray(e)) {
+            return e;
+          }
+          return e?.fileList;
+        };
+
+        return (
+          <Upload
+            listType={(field as ImageField).listType || 'picture-card'}
+            maxCount={(field as ImageField).maxCount}
+            multiple={(field as ImageField).multiple}
+            accept={(field as ImageField).accept}
+            beforeUpload={beforeUpload}
+            customRequest={({ onSuccess }) => {
+              setTimeout(() => {
+                onSuccess?.("ok");
+              }, 0);
+            }}
+          >
+            {(!field.maxCount || field.maxCount > 1) && (
+              <div>
+                <PlusOutlined />
+                <div style={{ marginTop: 8 }}>上传</div>
+              </div>
+            )}
+          </Upload>
+        );
+
+      case 'upload':
+        const uploadProps = {
+          name: 'file',
+          listType: field.listType || 'picture-card',
+          maxCount: field.maxCount,
+          multiple: field.multiple,
+          accept: field.accept,
+          beforeUpload: (file: RcFile) => {
+            const isValidType = field.accept ? 
+              field.accept.split(',').some(type => 
+                file.type === type.trim() || file.type.startsWith(type.trim().replace('*', ''))
+              ) : true;
+            
+            const isValidSize = field.maxSize ? 
+              file.size / 1024 / 1024 < field.maxSize : true;
+
+            if (!isValidType) {
+              message.error('请上传正确的文件类型!');
+              return Upload.LIST_IGNORE;
+            }
+
+            if (!isValidSize) {
+              message.error(`文件大小不能超过 ${field.maxSize}MB!`);
+              return Upload.LIST_IGNORE;
+            }
+
+            return true;
+          },
+          customRequest: ({ onSuccess }: any) => {
+            setTimeout(() => {
+              onSuccess?.("ok");
+            }, 0);
+          }
+        };
+
+        return (
+          <Upload {...uploadProps}>
+            {(!field.maxCount || field.maxCount > 1) && (
+              <div>
+                <PlusOutlined />
+                <div style={{ marginTop: 8 }}>上传</div>
+              </div>
+            )}
+          </Upload>
+        );
+
       default:
         return null;
     }
   };
 
   const renderFormItem = (field: FormField, parentField?: string): React.ReactNode => {
-    const fieldName = parentField ? [parentField, field.name] : field.name;
+    const fieldName = Array.isArray(field.name) ? field.name : parentField ? [parentField, field.name] : field.name;
     const formItemProps = {
       label: field.label,
       name: fieldName,
-      rules: field.rules,
+      rules: field.rules || [
+        ...(field.required ? [{ required: true, message: `请输入${field.label}` }] : []),
+        ...(field.type === 'number' ? [{ type: 'number', min: field.min, max: field.max, message: `${field.label}必须在${field.min}到${field.max}之间` }] : []),
+        ...(field.type === 'email' ? [{ type: 'email', message: '请输入有效的邮箱地址' }] : []),
+        ...(field.type === 'date' ? [{ 
+          type: 'date',
+          transform: (value: any) => {
+            if (value) {
+              return dayjs(value);
+            }
+            return value;
+          }
+        }] : [])
+      ],
       required: field.required,
       labelCol: field.newline ? undefined : { flex: '100px' },
       wrapperCol: field.newline ? undefined : { flex: 1 },
       'data-newline': field.newline,
+      ...(field.type === 'checkbox' ? { valuePropName: 'checked' } : {}),
+      ...(field.type === 'upload' ? { 
+        valuePropName: 'fileList',
+        getValueFromEvent: (e: any) => {
+          if (Array.isArray(e)) {
+            return e;
+          }
+          return e?.fileList;
+        }
+      } : {})
     };
 
     const content = (
       <Form.Item {...formItemProps}>
-        {renderField(field, parentField)}
+        {renderField(field)}
       </Form.Item>
     );
 
@@ -242,14 +411,36 @@ const SchemaForm: React.FC<SchemaFormProps> = ({
     return content;
   };
 
+  const handleFormFinish = (values: any) => {
+    console.log('SchemaForm onFinish:', values);
+    if (onFinish) {
+      onFinish(values);
+    }
+  };
+
+  const handleFormFinishFailed = (errorInfo: any) => {
+    console.log('Form validation failed:', errorInfo);
+  };
+
   return (
     <Form
       form={form}
       layout="horizontal"
-      onFinish={onFinish}
+      onFinish={handleFormFinish}
+      onFinishFailed={handleFormFinishFailed}
       initialValues={initialValues}
       labelAlign="right"
       size="middle"
+      validateMessages={{
+        required: '${label} 是必填项',
+        types: {
+          email: '请输入有效的邮箱地址',
+          number: '请输入有效的数字',
+        },
+        number: {
+          range: '${label} 必须在 ${min} 和 ${max} 之间',
+        },
+      }}
     >
       <div>
         {schema.fields.map((field) => (

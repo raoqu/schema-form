@@ -9,7 +9,8 @@ export type FieldType =
   | 'array' 
   | 'object' 
   | 'date' 
-  | 'json';
+  | 'json'
+  | 'image';
 
 export interface SelectOption {
   label: string;
@@ -85,6 +86,15 @@ export interface UploadField extends FormFieldBase {
   // You might want to add more upload-specific configurations here
 }
 
+export interface ImageField extends FormFieldBase {
+  type: 'image';
+  maxCount?: number;
+  maxSize?: number; // in MB
+  accept?: string;
+  listType?: 'text' | 'picture' | 'picture-card';
+  multiple?: boolean;
+}
+
 export interface ArrayField extends FormFieldBase {
   type: 'array';
   items: Exclude<FormField, ArrayField>; // Prevent nested arrays for simplicity
@@ -118,6 +128,7 @@ export type FormField =
   | RadioField
   | SelectField
   | UploadField
+  | ImageField
   | ArrayField
   | ObjectField
   | DateField
